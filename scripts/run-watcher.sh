@@ -1,26 +1,37 @@
 #!/usr/bin/env bash
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PLUGIN_ROOT="$(cd "$CURRENT_DIR/.." && pwd)"
 # shellcheck source=utils/tmux.sh
 source "$CURRENT_DIR/utils/tmux.sh"
 
+ensure_submodule() {
+	local watcher="$PLUGIN_ROOT/vendor/agent-watcher/src/agent_watcher.py"
+	[ -f "$watcher" ] && return 0
+	[ -f "$PLUGIN_ROOT/.gitmodules" ] || return 1
+	command -v git >/dev/null 2>&1 || return 1
+	git -C "$PLUGIN_ROOT" submodule update --init --depth 1 vendor/agent-watcher >/dev/null 2>&1
+}
+
 resolve_watcher() {
-	local configured sibling home_copy
+	local configured vendor sibling
 	configured="$(get_tmux_option '@agent-state-watcher' '')"
 	if [ -n "$configured" ] && [ -f "$configured" ]; then
 		printf '%s\n' "$configured"
 		return 0
 	fi
-	sibling="$(cd "$CURRENT_DIR/../.." && pwd)/agent-watcher/src/agent_watcher.py"
+	ensure_submodule || true
+	vendor="$PLUGIN_ROOT/vendor/agent-watcher/src/agent_watcher.py"
+	if [ -f "$vendor" ]; then
+		printf '%s\n' "$vendor"
+		return 0
+	fi
+	# Local checkout next to this repo (plugin author / sessh sibling).
+	sibling="$(cd "$PLUGIN_ROOT/.." && pwd)/agent-watcher/src/agent_watcher.py"
 	if [ -f "$sibling" ]; then
 		printf '%s\n' "$sibling"
 		return 0
 	fi
-	home_copy="${HOME}/repos/agent-watcher/src/agent_watcher.py"
-	if [ -f "$home_copy" ]; then
-		printf '%s\n' "$home_copy"
-		return 0
-	fi
-	tmux display-message "tmux-agent-state: agent-watcher not found (set @agent-state-watcher)"
+	tmux display-message "tmux-agent-state: agent-watcher missing (git submodule update --init)"
 	return 1
 }
 
