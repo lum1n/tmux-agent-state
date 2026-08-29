@@ -47,7 +47,6 @@ SESSION_OPTS = (
     "@agent_badge",
     "@agent_worst",
     "@agent_color",
-    "@agent_glyph",
     "@agent_label",
 )
 GLOBAL_OPTS = (
@@ -312,7 +311,9 @@ def write_tmux(
         target = session_target(session)
         sset = ["set-option", "-t", target]
         set_user_opt(batches, sset, "@agent_badge", glyph)
-        set_user_opt(batches, sset, "@agent_glyph", glyph)
+        # Never set session @agent_glyph — window-status inherits it and
+        # paints every tab in the session.
+        batches.append(["set-option", "-u", "-t", target, "@agent_glyph"])
         set_user_opt(batches, sset, "@agent_label", session_label)
         set_user_opt(batches, sset, "@agent_worst", worst if glyph else "")
         set_user_opt(
