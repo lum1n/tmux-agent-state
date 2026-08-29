@@ -4,9 +4,14 @@ PLUGIN_ROOT="$(cd "$CURRENT_DIR/.." && pwd)"
 # shellcheck source=utils/tmux.sh
 source "$CURRENT_DIR/utils/tmux.sh"
 
+# status-interval calls --kick: never block the bar on git or flash a message.
+KICK=0
+[ "${1:-}" = "--kick" ] && KICK=1
+
 ensure_submodule() {
 	local watcher="$PLUGIN_ROOT/vendor/agent-watcher/src/agent_watcher.py"
 	[ -f "$watcher" ] && return 0
+	[ "$KICK" -eq 1 ] && return 1
 	[ -f "$PLUGIN_ROOT/.gitmodules" ] || return 1
 	command -v git >/dev/null 2>&1 || return 1
 	git -C "$PLUGIN_ROOT" submodule update --init --depth 1 vendor/agent-watcher >/dev/null 2>&1
@@ -31,27 +36,45 @@ resolve_watcher() {
 		printf '%s\n' "$sibling"
 		return 0
 	fi
-	tmux display-message "tmux-agent-state: agent-watcher missing (git submodule update --init)"
+	[ "$KICK" -eq 0 ] && tmux display-message "tmux-agent-state: agent-watcher missing (git submodule update --init)"
 	return 1
 }
 
+pid_alive() {
+	local pidfile="$1" pid
+	[ -f "$pidfile" ] || return 1
+	pid="$(cat "$pidfile" 2>/dev/null)"
+	[ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+}
+
 start_watcher() {
-	local watcher pidfile logfile socket pid
+	local watcher pidfile logfile socket lockdir
 	watcher="$(resolve_watcher)" || return 1
 	socket="$(tmux display-message -p '#{socket_path}')"
+	[ -n "$socket" ] || return 1
 	pidfile="${socket}.agent-state.pid"
 	logfile="${socket}.agent-state.log"
-	if [ -f "$pidfile" ]; then
-		pid="$(cat "$pidfile")"
-		if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-			return 0
-		fi
+	lockdir="${socket}.agent-state.lock"
+	if pid_alive "$pidfile"; then
+		return 0
+	fi
+	if ! mkdir "$lockdir" 2>/dev/null; then
+		# Another starter is running, or a stale lock. If the pid is live, done.
+		pid_alive "$pidfile" && return 0
+		rmdir "$lockdir" 2>/dev/null || rm -rf "$lockdir"
+		mkdir "$lockdir" 2>/dev/null || return 0
+	fi
+	# Recheck after the lock so two clients do not spawn two daemons.
+	if pid_alive "$pidfile"; then
+		rmdir "$lockdir" 2>/dev/null || true
+		return 0
 	fi
 	nohup env PYTHONUNBUFFERED=1 python3 -u "$CURRENT_DIR/apply_tmux.py" \
 		--watcher "$watcher" \
 		--socket "$socket" \
 		>>"$logfile" 2>&1 &
 	echo $! >"$pidfile"
+	rmdir "$lockdir" 2>/dev/null || true
 }
 
 start_watcher

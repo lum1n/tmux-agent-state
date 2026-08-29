@@ -3,6 +3,9 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=utils/tmux.sh
 source "$CURRENT_DIR/utils/tmux.sh"
 
+# Continuum-style keep-alive: status-interval restarts a dead daemon.
+"$CURRENT_DIR/run-watcher.sh" --kick >/dev/null 2>&1 || true
+
 glyphs="$(get_tmux_option '@agent-state-glyphs' '⚠ ✖ ⚙ …')"
 colors="$(get_tmux_option '@agent-state-colors' 'red red cyan yellow')"
 # shellcheck disable=SC2086
