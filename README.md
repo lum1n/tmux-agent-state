@@ -60,7 +60,7 @@ Per-window: `@agent_state`, `@agent_kind`, `@agent_glyph`, `@agent_color`, `@age
 
 The watcher listens on `#{socket_path}.agent-watcher.sock` (mode `0700`, same uid) and sets `@agent_watcher_socket`. Sessh attaches to that socket when present so the host does not run two classifiers.
 
-If the daemon exits, the next status refresh or a new session/client starts it again.
+If the daemon exits, the next `status-interval` refresh starts it again. Keep `status-interval` above 0.
 
 The watcher reads pane text on this machine only. The listen socket is mode `0700` (your uid). Nothing is sent off-host unless you also run sessh over SSH (then the same classifier runs on the remote).
 

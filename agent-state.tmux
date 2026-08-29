@@ -48,17 +48,8 @@ bind_choose_tree() {
 	tmux bind-key "$key" run-shell "$CURRENT_DIR/scripts/choose-tree.sh"
 }
 
-keep_alive() {
-	local hook
-	hook="$CURRENT_DIR/scripts/run-watcher.sh"
-	# Named hooks so we do not replace another plugin's session-created / attach.
-	tmux set-hook -g 'session-created[agent-state]' "run-shell '$hook'"
-	tmux set-hook -g 'client-attached[agent-state]' "run-shell '$hook'"
-}
-
 main() {
 	"$CURRENT_DIR/scripts/run-watcher.sh"
-	keep_alive
 	decorate_windows
 	inject_status
 	bind_choose_tree
