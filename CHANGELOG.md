@@ -8,6 +8,6 @@
 
 - Statusline, window tabs, and `prefix-s` show live agent state.
 - Pins [agent-watcher](https://github.com/lum1n/agent-watcher) as a submodule.
-- Host Unix socket for Sessh so the classifier is not started twice.
+- Host Unix socket so another local client can share the classifier.
 - Window glyphs are scoped to the agent window only.
 - Watcher respawns if the daemon exits (checked on each `status-interval`).

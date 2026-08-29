@@ -4,7 +4,7 @@
 
 TPM plugin: live AI-agent state on the tmux statusline, window list, and native session switcher (`prefix-s`).
 
-Classification comes from [agent-watcher](https://github.com/lum1n/agent-watcher) (the same Python [sessh](https://github.com/lum1n/sessh) embeds over SSH). This repo pins that project as a git submodule under `vendor/agent-watcher` so you only add one plugin.
+Classification comes from [agent-watcher](https://github.com/lum1n/agent-watcher). This repo pins that project as a git submodule under `vendor/agent-watcher` so you only add one plugin.
 
 ## Install
 
@@ -58,11 +58,11 @@ set -g @agent-state-colors 'red red cyan yellow'
 
 Per-window: `@agent_state`, `@agent_kind`, `@agent_glyph`, `@agent_color`, `@agent_label`. Per-session: `@agent_badge`, `@agent_label`, `@agent_worst`, `@agent_color`. Global: `@agent_needs_user`, `@agent_busy`, `@agent_thinking`, `@agent_running_tool`, `@agent_errored`.
 
-The watcher listens on `#{socket_path}.agent-watcher.sock` (mode `0700`, same uid) and sets `@agent_watcher_socket`. Sessh attaches to that socket when present so the host does not run two classifiers.
+The watcher listens on `#{socket_path}.agent-watcher.sock` (mode `0700`, same uid) and sets `@agent_watcher_socket`. Other local clients can attach to that socket so the host does not run two classifiers.
 
 If the daemon exits, the next `status-interval` refresh starts it again. Keep `status-interval` above 0.
 
-The watcher reads pane text on this machine only. The listen socket is mode `0700` (your uid). Nothing is sent off-host unless you also run sessh over SSH (then the same classifier runs on the remote).
+The watcher reads pane text on this machine only. The listen socket is mode `0700` (your uid). Nothing is sent off-host.
 
 ## Updating the classifier
 
