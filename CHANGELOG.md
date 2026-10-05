@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Bump [agent-watcher](https://github.com/lum1n/agent-watcher) to pick up GitHub Copilot CLI discover and classify.
+
 ## 0.1.1
 
 - Do not register tmux hooks. 3.7b rejects named hooks (`session-created[…]`); respawn stays on `status-interval`.
