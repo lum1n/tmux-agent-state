@@ -26,7 +26,7 @@ set -g @plugin '/path/to/tmux-agent-state'
 
 `idle` · `thinking` · `running-tool` · `waiting-permission` · `errored`
 
-Harnesses: Claude, Codex, OpenCode, Pi, Cursor. Agents must be running inside tmux.
+Harnesses: Claude, Codex, OpenCode, Pi, Cursor, Copilot. Agents must be running inside tmux.
 
 ## Surfaces
 
