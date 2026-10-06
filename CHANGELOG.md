@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.2
 
 - Bump [agent-watcher](https://github.com/lum1n/agent-watcher) to pick up GitHub Copilot CLI discover and classify.
 
