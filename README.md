@@ -60,7 +60,9 @@ Per-window: `@agent_state`, `@agent_kind`, `@agent_glyph`, `@agent_color`, `@age
 
 The watcher listens on `#{socket_path}.agent-watcher.sock` (mode `0700`, same uid) and sets `@agent_watcher_socket`. Other local clients can attach to that socket so the host does not run two classifiers.
 
-If the daemon exits, the next `status-interval` refresh starts it again. Keep `status-interval` above 0.
+If the daemon exits, the next `status-interval` refresh starts it again. Plugin reloads and status refreshes also restart it automatically when the plugin adapter, classifier Python files, or resolved `@agent-state-watcher` path change. Existing daemons from older plugin versions are restarted on the first check after upgrading. Keep `status-interval` above 0.
+
+Lifecycle checks use a crash-safe exclusive lock and verify process ownership and identity before signalling a PID. Commands use argument lists rather than shell interpolation (ASVS 15.4.1, 15.4.3, and 1.2.5).
 
 The watcher reads pane text on this machine only. The listen socket is mode `0700` (your uid). Nothing is sent off-host.
 

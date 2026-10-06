@@ -20,5 +20,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: apply_tmux
         run: python3 scripts/apply_tmux.py --self-test
+      - name: watcher lifecycle
+        run: python3 -m unittest discover -s tests
       - name: bash syntax
         run: bash -n agent-state.tmux && bash -n scripts/run-watcher.sh && bash -n scripts/status.sh && bash -n scripts/choose-tree.sh && bash -n scripts/utils/tmux.sh

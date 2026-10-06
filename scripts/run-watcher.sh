@@ -40,41 +40,16 @@ resolve_watcher() {
 	return 1
 }
 
-pid_alive() {
-	local pidfile="$1" pid
-	[ -f "$pidfile" ] || return 1
-	pid="$(cat "$pidfile" 2>/dev/null)"
-	[ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
-}
-
 start_watcher() {
-	local watcher pidfile logfile socket lockdir
+	local watcher logfile socket
 	watcher="$(resolve_watcher)" || return 1
 	socket="$(tmux display-message -p '#{socket_path}')"
 	[ -n "$socket" ] || return 1
-	pidfile="${socket}.agent-state.pid"
 	logfile="${socket}.agent-state.log"
-	lockdir="${socket}.agent-state.lock"
-	if pid_alive "$pidfile"; then
-		return 0
-	fi
-	if ! mkdir "$lockdir" 2>/dev/null; then
-		# Another starter is running, or a stale lock. If the pid is live, done.
-		pid_alive "$pidfile" && return 0
-		rmdir "$lockdir" 2>/dev/null || rm -rf "$lockdir"
-		mkdir "$lockdir" 2>/dev/null || return 0
-	fi
-	# Recheck after the lock so two clients do not spawn two daemons.
-	if pid_alive "$pidfile"; then
-		rmdir "$lockdir" 2>/dev/null || true
-		return 0
-	fi
-	nohup env PYTHONUNBUFFERED=1 python3 -u "$CURRENT_DIR/apply_tmux.py" \
+	python3 "$CURRENT_DIR/manage_watcher.py" \
 		--watcher "$watcher" \
 		--socket "$socket" \
-		>>"$logfile" 2>&1 &
-	echo $! >"$pidfile"
-	rmdir "$lockdir" 2>/dev/null || true
+		>>"$logfile" 2>&1
 }
 
 start_watcher

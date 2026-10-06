@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import signal
 import subprocess
 import sys
 from typing import Any
@@ -426,6 +427,7 @@ def main() -> int:
         bufsize=1,
     )
     assert proc.stdout is not None
+    signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(0))
     published = False
     try:
         for line in proc.stdout:

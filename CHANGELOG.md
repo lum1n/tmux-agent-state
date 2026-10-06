@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3
+
+- Automatically restart the daemon after plugin/classifier updates or watcher path changes, including upgrades from older plugin versions.
+- Serialize daemon lifecycle checks with a crash-safe lock and verify process identity before stopping a recorded PID.
+
 ## 0.1.2
 
 - Bump [agent-watcher](https://github.com/lum1n/agent-watcher) to pick up GitHub Copilot CLI discover and classify.
