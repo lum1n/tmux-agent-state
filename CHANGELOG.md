@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+- Bump agent-watcher: socket snapshot requests are answered immediately from
+  current state, so short-lived clients such as Hive's watcher probe no longer
+  time out while the daemon rescans (seen on macOS).
+
 ## 0.2.0
 
 - Bump agent-watcher: lower polling CPU and subscription quota events on the
