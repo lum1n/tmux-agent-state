@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import select
 import signal
 import subprocess
 import sys
+import time
 from typing import Any
 
 RANK = {
@@ -248,6 +250,15 @@ def apply_event(store: dict[str, dict[str, Any]], ev: dict[str, Any]) -> bool:
     return False
 
 
+# Re-read @agent-state-glyphs / colors at most this often.
+_STYLE_TTL_S = 30.0
+# After the first dirty event, wait this long so a burst of NDJSON collapses
+# into one write_tmux + refresh-client.
+_COALESCE_S = 0.12
+# list-sessions is cheap but not free — don't fork it on every line.
+_ALIVE_EVERY_S = 5.0
+
+
 def load_style(tmux: Tmux) -> tuple[dict[str, str], dict[str, str]]:
     glyphs = parse_glyphs(
         tmux.show_global("@agent-state-glyphs", DEFAULT_GLYPHS_OPT)
@@ -256,6 +267,56 @@ def load_style(tmux: Tmux) -> tuple[dict[str, str], dict[str, str]]:
         tmux.show_global("@agent-state-colors", DEFAULT_COLORS_OPT)
     )
     return glyphs, colors
+
+
+def visual_fingerprint(
+    store: dict[str, dict[str, Any]],
+    glyphs: dict[str, str],
+    colors: dict[str, str],
+) -> tuple[Any, ...]:
+    """Options that affect the status bar / window titles — skip no-op writes."""
+    rows: list[tuple[Any, ...]] = []
+    for key in sorted(store):
+        row = store[key]
+        state = row.get("state") or ("unbound" if row.get("unbound") else "idle")
+        rows.append(
+            (
+                key,
+                state,
+                row.get("kind") or "",
+                glyph_for(state, glyphs),
+                color_for(state, colors),
+                label_for({**row, "state": state}),
+                sanitize(row.get("toolName"), 40),
+                sanitize(row.get("summary"), 80),
+            )
+        )
+    needs = sum(1 for r in store.values() if r.get("state") == "waiting-permission")
+    errored = sum(1 for r in store.values() if r.get("state") == "errored")
+    thinking = sum(1 for r in store.values() if r.get("state") == "thinking")
+    running = sum(1 for r in store.values() if r.get("state") == "running-tool")
+    return (tuple(rows), needs, errored, thinking, running)
+
+
+def drain_stdout(stdout, first: str, settle_s: float) -> list[str]:
+    """Collect first plus any lines that arrive within settle_s."""
+    lines = [first]
+    deadline = time.monotonic() + settle_s
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        try:
+            ready, _, _ = select.select([stdout], [], [], remaining)
+        except (ValueError, OSError):
+            break
+        if not ready:
+            break
+        more = stdout.readline()
+        if not more:
+            break
+        lines.append(more)
+    return lines
 
 
 def write_tmux(
@@ -429,23 +490,47 @@ def main() -> int:
     assert proc.stdout is not None
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(0))
     published = False
+    glyphs, colors = load_style(tmux)
+    style_at = time.monotonic()
+    last_fp: tuple[Any, ...] | None = None
+    alive_at = 0.0
     try:
-        for line in proc.stdout:
-            if not tmux.alive():
-                print("tmux server gone", file=sys.stderr)
+        while True:
+            line = proc.stdout.readline()
+            if not line:
                 break
-            ev = parse_line(line)
-            if ev and ev.get("type") == "hello" and listen and not published:
-                tmux.run(
-                    [["set-option", "-g", "@agent_watcher_socket", listen]]
-                )
-                published = True
-                print("listening %s" % listen, file=sys.stderr)
-            if not ev:
+            now = time.monotonic()
+            if now - alive_at >= _ALIVE_EVERY_S:
+                alive_at = now
+                if not tmux.alive():
+                    print("tmux server gone", file=sys.stderr)
+                    break
+
+            batch = drain_stdout(proc.stdout, line, _COALESCE_S)
+            dirty = False
+            for raw in batch:
+                ev = parse_line(raw)
+                if ev and ev.get("type") == "hello" and listen and not published:
+                    tmux.run(
+                        [["set-option", "-g", "@agent_watcher_socket", listen]]
+                    )
+                    published = True
+                    print("listening %s" % listen, file=sys.stderr)
+                if not ev:
+                    continue
+                if apply_event(store, ev):
+                    dirty = True
+            if not dirty:
                 continue
-            if not apply_event(store, ev):
+
+            if time.monotonic() - style_at >= _STYLE_TTL_S:
+                glyphs, colors = load_style(tmux)
+                style_at = time.monotonic()
+
+            fp = visual_fingerprint(store, glyphs, colors)
+            if fp == last_fp:
                 continue
-            glyphs, colors = load_style(tmux)
+            last_fp = fp
             prev_windows, prev_sessions = write_tmux(
                 tmux, store, glyphs, colors, prev_windows, prev_sessions
             )
