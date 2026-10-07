@@ -54,6 +54,7 @@ set -g @agent-state-choose-tree 'on'
 set -g @agent-state-choose-key 's'
 set -g @agent-state-glyphs '⚠ ✖ ⚙ …'
 set -g @agent-state-colors 'red red cyan yellow'
+set -g @agent-state-quota 'on'
 ```
 
 Per-window: `@agent_state`, `@agent_kind`, `@agent_glyph`, `@agent_color`, `@agent_label`. Per-session: `@agent_badge`, `@agent_label`, `@agent_worst`, `@agent_color`. Global: `@agent_needs_user`, `@agent_busy`, `@agent_thinking`, `@agent_running_tool`, `@agent_errored`.
@@ -64,7 +65,23 @@ If the daemon exits, the next `status-interval` refresh starts it again. Plugin 
 
 Lifecycle checks use a crash-safe exclusive lock and verify process ownership and identity before signalling a PID. Commands use argument lists rather than shell interpolation (ASVS 15.4.1, 15.4.3, and 1.2.5).
 
-The watcher reads pane text on this machine only. The listen socket is mode `0700` (your uid). Nothing is sent off-host.
+The watcher reads pane text on this machine only. The listen socket is mode `0700` (your uid).
+
+### Subscription quota
+
+While Claude, Codex, or Cursor agents run, the watcher checks their plan usage
+about every three minutes and publishes `quota` events (percent used and reset
+time) on the listen socket, for clients such as tmux-agent-overview. To do that
+it reads each agent's own login on this machine (`~/.claude/.credentials.json`,
+`~/.codex/auth.json`, Cursor's auth file) and calls that vendor's usage endpoint.
+Tokens are never written to events or logs. These are the only off-host
+requests. To turn them off:
+
+```tmux
+set -g @agent-state-quota 'off'
+```
+
+Changing the option restarts the daemon on the next `status-interval` refresh.
 
 ## Updating the classifier
 

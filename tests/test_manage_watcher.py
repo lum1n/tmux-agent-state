@@ -84,12 +84,12 @@ class LifecycleTests(unittest.TestCase):
             self.foreign.wait(timeout=3)
         self.temp.cleanup()
 
-    def command(self):
+    def command(self, *extra):
         return [sys.executable, str(self.scripts / "manage_watcher.py"),
-                "--watcher", str(self.watcher), "--socket", self.socket]
+                "--watcher", str(self.watcher), "--socket", self.socket, *extra]
 
-    def run_manager(self):
-        subprocess.run(self.command(), capture_output=True, text=True, check=True)
+    def run_manager(self, *extra):
+        subprocess.run(self.command(*extra), capture_output=True, text=True, check=True)
         pid = int(self.pidfile.read_text())
         self.processes[pid] = manager.process_identity(pid)
         deadline = time.monotonic() + 3
@@ -127,6 +127,14 @@ class LifecycleTests(unittest.TestCase):
         updated, _ = self.run_manager()
         self.assertNotEqual(pid, updated)
         self.assert_stopped(pid, child)
+
+    def test_quota_option_change_restarts_daemon(self):
+        pid, child = self.run_manager()
+        self.assertEqual((pid, child), self.run_manager("--quota", "on"))
+        updated, _ = self.run_manager("--quota", "off")
+        self.assertNotEqual(pid, updated)
+        self.assert_stopped(pid, child)
+        self.assertEqual(updated, self.run_manager("--quota", "off")[0])
 
     def test_watcher_path_change_restarts_daemon(self):
         pid, child = self.run_manager()

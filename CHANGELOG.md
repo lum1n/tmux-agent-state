@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0
+
+- Bump agent-watcher: lower polling CPU and subscription quota events on the
+  listen socket (replayed to new subscribers).
+- Quota probes read local agent logins and call vendor usage APIs; disable
+  with `set -g @agent-state-quota 'off'`. Changing the option restarts the
+  daemon on the next status refresh.
+- Coalesce bursts of watcher events into one tmux write and skip writes that
+  would not change the status bar, tabs, or tree.
+
 ## 0.1.3
 
 - Automatically restart the daemon after plugin/classifier updates or watcher path changes, including upgrades from older plugin versions.

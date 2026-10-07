@@ -14,7 +14,7 @@ import sys
 import time
 
 
-def fingerprint(watcher: Path, scripts: Path) -> str:
+def fingerprint(watcher: Path, scripts: Path, config: str = "") -> str:
     files = set(watcher.parent.rglob("*.py"))
     files.add(watcher)
     files.update(scripts / name for name in (
@@ -22,6 +22,8 @@ def fingerprint(watcher: Path, scripts: Path) -> str:
     ))
     digest = hashlib.sha256()
     digest.update(str(watcher).encode())
+    # Daemon-start options (e.g. quota on/off) restart it just like code changes.
+    digest.update(config.encode() + b"\0")
     for path in sorted(files):
         digest.update(str(path).encode() + b"\0")
         digest.update(hashlib.sha256(path.read_bytes()).digest())
@@ -94,7 +96,7 @@ def stop_daemon(pid: int, identity: str, socket: str) -> None:
         time.sleep(0.05)
 
 
-def ensure_running(watcher: Path, socket: str, scripts: Path) -> None:
+def ensure_running(watcher: Path, socket: str, scripts: Path, config: str = "") -> None:
     pidfile = Path(socket + ".agent-state.pid")
     statefile = Path(socket + ".agent-state.state")
     lockfile = Path(socket + ".agent-state.start.lock")
@@ -104,7 +106,7 @@ def ensure_running(watcher: Path, socket: str, scripts: Path) -> None:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             return
-        current = fingerprint(watcher, scripts)
+        current = fingerprint(watcher, scripts, config)
         try:
             pid = int(pidfile.read_text().strip())
         except FileNotFoundError:
@@ -154,9 +156,11 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--watcher", required=True, type=Path)
     parser.add_argument("--socket", required=True)
+    parser.add_argument("--quota", choices=("on", "off"), default="on")
     args = parser.parse_args()
     try:
-        ensure_running(args.watcher.resolve(), args.socket, Path(__file__).resolve().parent)
+        ensure_running(args.watcher.resolve(), args.socket, Path(__file__).resolve().parent,
+                       f"quota={args.quota}")
     except (OSError, RuntimeError, subprocess.SubprocessError) as error:
         print(f"watcher lifecycle failed: {error}", file=sys.stderr)
         return 1

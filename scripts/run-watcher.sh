@@ -41,14 +41,17 @@ resolve_watcher() {
 }
 
 start_watcher() {
-	local watcher logfile socket
+	local watcher logfile socket quota
 	watcher="$(resolve_watcher)" || return 1
 	socket="$(tmux display-message -p '#{socket_path}')"
 	[ -n "$socket" ] || return 1
 	logfile="${socket}.agent-state.log"
+	quota="$(get_tmux_option '@agent-state-quota' 'on')"
+	[ "$quota" = "off" ] || quota="on"
 	python3 "$CURRENT_DIR/manage_watcher.py" \
 		--watcher "$watcher" \
 		--socket "$socket" \
+		--quota "$quota" \
 		>>"$logfile" 2>&1
 }
 

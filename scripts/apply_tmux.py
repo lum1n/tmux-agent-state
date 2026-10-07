@@ -477,6 +477,10 @@ def main() -> int:
     if args.socket:
         listen = args.socket + ".agent-watcher.sock"
     cmd = [sys.executable, "-u", args.watcher]
+    # Before --listen: manage_watcher identifies the child by its trailing
+    # `--listen <socket>`. It also restarts us when this option changes.
+    if tmux.show_global("@agent-state-quota", "on") == "off":
+        cmd.append("--no-quota")
     if listen:
         cmd.extend(["--listen", listen])
     print("apply_tmux starting watcher %s" % args.watcher, file=sys.stderr)
