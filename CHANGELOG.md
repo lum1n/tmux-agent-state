@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.2
+
+- Bump agent-watcher: socket clients that disconnect mid-send (such as
+  short-lived probes) no longer log a traceback.
+
 ## 0.2.1
 
 - Bump agent-watcher: socket snapshot requests are answered immediately from
