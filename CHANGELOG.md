@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.3
+
+- Bump agent-watcher: Claude panes stay busy on narrow windows (such as a
+  phone client) where the footer cuts off `esc to interrupt`.
+
 ## 0.2.2
 
 - Bump agent-watcher: socket clients that disconnect mid-send (such as
