@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import select
 import signal
 import subprocess
@@ -298,7 +299,44 @@ def visual_fingerprint(
     return (tuple(rows), needs, errored, thinking, running)
 
 
-def drain_stdout(stdout, first: str, settle_s: float) -> list[str]:
+class LineReader:
+    """Line reader over a raw fd whose buffer select() can see.
+
+    A text-mode pipe reads ahead in chunks, so lines already buffered in
+    Python are invisible to select() on the fd.
+    """
+
+    def __init__(self, fd: int) -> None:
+        self.fd = fd
+        self.buf = b""
+        self.eof = False
+
+    def readline(self, timeout: float | None = None) -> str | None:
+        """Next line, "" at EOF, or None if none arrived within timeout."""
+        deadline = None if timeout is None else time.monotonic() + timeout
+        while True:
+            nl = self.buf.find(b"\n")
+            if nl >= 0 or (self.eof and self.buf):
+                end = nl + 1 if nl >= 0 else len(self.buf)
+                line, self.buf = self.buf[:end], self.buf[end:]
+                return line.decode("utf-8", "replace")
+            if self.eof:
+                return ""
+            if deadline is not None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return None
+                ready, _, _ = select.select([self.fd], [], [], remaining)
+                if not ready:
+                    return None
+            chunk = os.read(self.fd, 65536)
+            if chunk:
+                self.buf += chunk
+            else:
+                self.eof = True
+
+
+def drain_stdout(stdout: LineReader, first: str, settle_s: float) -> list[str]:
     """Collect first plus any lines that arrive within settle_s."""
     lines = [first]
     deadline = time.monotonic() + settle_s
@@ -307,12 +345,9 @@ def drain_stdout(stdout, first: str, settle_s: float) -> list[str]:
         if remaining <= 0:
             break
         try:
-            ready, _, _ = select.select([stdout], [], [], remaining)
+            more = stdout.readline(remaining)
         except (ValueError, OSError):
             break
-        if not ready:
-            break
-        more = stdout.readline()
         if not more:
             break
         lines.append(more)
@@ -488,10 +523,10 @@ def main() -> int:
         cmd,
         stdout=subprocess.PIPE,
         stdin=subprocess.DEVNULL,
-        text=True,
-        bufsize=1,
+        bufsize=0,
     )
     assert proc.stdout is not None
+    reader = LineReader(proc.stdout.fileno())
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(0))
     published = False
     glyphs, colors = load_style(tmux)
@@ -500,7 +535,7 @@ def main() -> int:
     alive_at = 0.0
     try:
         while True:
-            line = proc.stdout.readline()
+            line = reader.readline()
             if not line:
                 break
             now = time.monotonic()
@@ -510,7 +545,7 @@ def main() -> int:
                     print("tmux server gone", file=sys.stderr)
                     break
 
-            batch = drain_stdout(proc.stdout, line, _COALESCE_S)
+            batch = drain_stdout(reader, line, _COALESCE_S)
             dirty = False
             for raw in batch:
                 ev = parse_line(raw)
