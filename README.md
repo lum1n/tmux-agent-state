@@ -57,7 +57,7 @@ set -g @agent-state-colors 'red red cyan yellow'
 set -g @agent-state-quota 'on'
 ```
 
-Per-window: `@agent_state`, `@agent_kind`, `@agent_glyph`, `@agent_color`, `@agent_label`. Per-session: `@agent_badge`, `@agent_label`, `@agent_worst`, `@agent_color`. Global: `@agent_needs_user`, `@agent_busy`, `@agent_thinking`, `@agent_running_tool`, `@agent_errored`.
+Per-window: `@agent_state`, `@agent_kind`, `@agent_glyph`, `@agent_color`, `@agent_label`, `@agent_tool`, `@agent_summary`. Per-session: `@agent_badge`, `@agent_label`, `@agent_worst`, `@agent_color`. Global: `@agent_needs_user`, `@agent_busy`, `@agent_thinking`, `@agent_running_tool`, `@agent_errored`.
 
 The watcher listens on `#{socket_path}.agent-watcher.sock` (mode `0700`, same uid) and sets `@agent_watcher_socket`. Other local clients can attach to that socket so the host does not run two classifiers.
 
@@ -73,7 +73,8 @@ While Claude, Codex, or Cursor agents run, the watcher checks their plan usage
 about every three minutes and publishes `quota` events (percent used and reset
 time) on the listen socket, for clients such as tmux-agent-overview. To do that
 it reads each agent's own login on this machine (`~/.claude/.credentials.json`,
-`~/.codex/auth.json`, Cursor's auth file) and calls that vendor's usage endpoint.
+or the `Claude Code-credentials` Keychain item on macOS; `~/.codex/auth.json`;
+Cursor's auth file) and calls that vendor's usage endpoint.
 Tokens are never written to events or logs. These are the only off-host
 requests. To turn them off:
 
